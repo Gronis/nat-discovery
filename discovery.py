@@ -2,7 +2,7 @@ import binascii
 import logging
 import random
 import socket
-from termcolor import colored
+#from termcolor import colored
 from json import dumps
 
 
@@ -92,11 +92,17 @@ ChangedAddressError = "Meet an error, when do Test1 on Changed IP and Port"
 
 def _initialize():
     items = dictAttrToVal.items()
-    for i in range(len(items)):
-        dictValToAttr.update({items[i][1]: items[i][0]})
-    items = dictMsgTypeToVal.items()
-    for i in range(len(items)):
-        dictValToMsgType.update({items[i][1]: items[i][0]})
+
+    for k,v in dictAttrToVal.items():
+        dictValToAttr[v] = k
+    # for i in range(len(items)):
+    #     dictValToAttr.update({items[i][1]: items[i][0]})
+    for k,v in dictMsgTypeToVal.items():
+        dictValToMsgType[v] = k
+    # for i in range(len(items)):
+    #     dictValToMsgType.update({items[i][1]: items[i][0]})
+    print(dictValToMsgType)
+    
 
 
 def gen_tran_id():
@@ -116,7 +122,7 @@ def stun_test(sock, host, port, source_ip, source_port, send_data=""):
     recvCorr = False
     while not recvCorr:
         recieved = False
-        count = 3
+        count = 1
         while not recieved:
             log.debug("sendto: %s", (host, port))
             try:
@@ -142,8 +148,8 @@ def stun_test(sock, host, port, source_ip, source_port, send_data=""):
                     retVal['Resp'] = False
                     return retVal
         msgtype = binascii.b2a_hex(buf[0:2])
-        bind_resp_msg = dictValToMsgType[msgtype] == "BindResponseMsg"
-        tranid_match = tranid.upper() == binascii.b2a_hex(buf[4:20]).upper()
+        bind_resp_msg = dictValToMsgType[msgtype.decode('ascii')] == "BindResponseMsg"
+        tranid_match = tranid.upper() == binascii.b2a_hex(buf[4:20]).decode('ascii').upper()
         if bind_resp_msg and tranid_match:
             recvCorr = True
             retVal['Resp'] = True
@@ -151,7 +157,7 @@ def stun_test(sock, host, port, source_ip, source_port, send_data=""):
             len_remain = len_message
             base = 20
             while len_remain:
-                attr_type = binascii.b2a_hex(buf[base:(base + 2)])
+                attr_type = binascii.b2a_hex(buf[base:(base + 2)]).decode('ascii')
                 attr_len = int(
                     binascii.b2a_hex(buf[(base + 2):(base + 4)]), 16
                 )
@@ -220,7 +226,7 @@ def stun_test(sock, host, port, source_ip, source_port, send_data=""):
 def get_nat_type(s, source_ip, source_port, stun_host=None, stun_port=3478):
     _initialize()
     port = stun_port
-    log.debug(colored('# Do Test1', 'green'))
+    log.debug('# Do Test1')
     resp = False
     if stun_host:
         ret = stun_test(s, stun_host, port, source_ip, source_port)
@@ -249,14 +255,14 @@ def get_nat_type(s, source_ip, source_port, stun_host=None, stun_port=3478):
             typ = SymmetricUDPFirewall
     else:
         changeRequest = ''.join([ChangeRequest, '0004', "00000006"])
-        log.debug(colored('# Do Test2', 'green'))
+        log.debug('# Do Test2')
         ret = stun_test(s, stun_host, port, source_ip, source_port,
                         changeRequest)
         log.debug('result: %s', dumps(ret, indent=4))
         if ret['Resp']:
             typ = FullCone
         else:
-            log.debug(colored('# Do Test1', 'green'))
+            log.debug('# Do Test1')
             ret = stun_test(s, changedIP, changedPort, source_ip, source_port)
             log.debug('result: %s', dumps(ret, indent=4))
             if not ret['Resp']:
@@ -265,7 +271,7 @@ def get_nat_type(s, source_ip, source_port, stun_host=None, stun_port=3478):
                 if exIP == ret['ExternalIP'] and exPort == ret['ExternalPort']:
                     changePortRequest = ''.join([ChangeRequest, '0004',
                                                  "00000002"])
-                    log.debug(colored('# Do Test3', 'green'))
+                    log.debug('# Do Test3')
                     ret = stun_test(s, changedIP, port, source_ip, source_port,
                                     changePortRequest)
                     log.debug('result: %s', dumps(ret, indent=4))
@@ -288,5 +294,5 @@ def get_ip_info(source_ip="0.0.0.0", source_port=54320, stun_host=None,
                                  stun_host=stun_host, stun_port=stun_port)
     external_ip = nat['ExternalIP']
     external_port = nat['ExternalPort']
-    s.close()
-    return (nat_type, external_ip, external_port)
+    # s.close()
+    return (nat_type, external_ip, external_port, s)
